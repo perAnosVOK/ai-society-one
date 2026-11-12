@@ -9,13 +9,21 @@ Users explicitly select files via Android Storage Access Framework (ACTION_OPEN_
 - Recipient can download only the shared object(s), never browse owner's phone or account.
 - Optional expiration, download count, password and revocation; enforce all limits on server.
 - Show uploaded size, quota, progress, and retention policy.
-- Public-link recipients may need a compatible app; universal HTTPS link is preferable for interoperability, with explicit user choice about authentication.
+- Universal HTTPS links are required: recipients can open a public share in any modern browser, without installing AI Society One or registering. The owner explicitly chooses whether a share is public-link accessible or account-restricted.
 - Encrypt files in transit. For private shares, prefer client-side encryption and out-of-band key sharing; define key recovery and metadata leakage before claiming end-to-end encryption.
 - Malware scanning / abuse reporting / rate limits must be designed without falsely claiming server-side plaintext inspection of client-encrypted files.
 - Do not claim unlimited free storage. Choose object storage provider after evaluating pricing, quota, deletion and privacy.
 - No background access to other phone files.
 
-### Data model
+#### Browser download flow
+- A stable HTTPS endpoint such as /s/{randomToken} serves a lightweight mobile-friendly download page.
+- The server validates the token, revocation, expiry, optional password and download limits before issuing a short-lived scoped download URL or streaming the selected file.
+- Do not expose storage credentials, owner account data, phone filesystem paths or predictable object keys.
+- Apply safe Content-Disposition, MIME handling, no-sniff headers, rate limits and abuse controls; avoid rendering untrusted HTML directly.
+- For client-side encrypted files, browser decryption needs a deliberately designed key-delivery mechanism; a password or URL fragment can be used only after threat-model review.
+- Browser-accessible links require a publicly reachable HTTPS service, not merely a local file on the owner’s phone.
+
+## Data model
 FileObject(id, ownerId, name, mimeType, byteSize, storageKey, createdAt, encryptionMetadata)
 Share(id, ownerId, fileObjectIds, tokenHash, expiresAt?, maxDownloads?, downloads, revokedAt?)
 Storage and share metadata must be scoped to authenticated owner. Download authorization must be checked server-side.
