@@ -15,15 +15,21 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      # Avoid android-actions/setup-android@v3: it invokes sdkmanager "tools",
-      # a removed legacy package on the GitHub-hosted runner.
-      # ubuntu-24.04 already provides Android SDK command-line tools.
-      - name: Locate Android SDK
+      - name: Install Android SDK packages
+        shell: bash
         run: |
-          test -d "$ANDROID_HOME"
-          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" || command -v sdkmanager
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          if [[ -z "$SDKMANAGER" ]]; then
+            echo "::error::Android SDK manager was not found under $SDK_ROOT/cmdline-tools"
+            exit 1
+          fi
+          echo "Found SDK manager at $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
