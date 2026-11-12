@@ -27,7 +27,6 @@ jobs:
             echo "::error::Android SDK manager was not found under $SDK_ROOT/cmdline-tools"
             exit 1
           fi
-          echo "Found SDK manager at $SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
@@ -35,11 +34,24 @@ jobs:
           gradle-version: '8.9'
       - name: Build APK
         run: gradle --no-daemon :app:assembleDebug
-      - name: Measure APK
+      - name: Validate APK metadata and signature
+        shell: bash
         run: |
-          ls -lh app/build/outputs/apk/debug/*.apk
-          wc -c app/build/outputs/apk/debug/*.apk
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK" || { echo "::error::APK is missing or empty"; exit 1; }
+          BUILD_TOOLS="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | tee apk-badging.txt
+          grep -q "package: name='org.aisociety.one'" apk-badging.txt
+          grep -q "sdkVersion:'26'" apk-badging.txt
+          "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+          sha256sum "$APK" | tee apk-sha256.txt
+          ls -lh "$APK"
       - uses: actions/upload-artifact@v4
         with:
           name: ai-society-one-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            apk-badging.txt
+            apk-sha256.txt
+          if-no-files-found: error
